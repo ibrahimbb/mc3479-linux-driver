@@ -2,8 +2,45 @@
 #include <linux/init.h>
 #include <linux/spi/spi.h>
 
+#include <linux/iio/iio.h>
+#include <linux/iio/buffer.h>
+#include <linux/iio/sysfs.h>
+#include <linux/iio/trigger.h>
+#include <linux/iio/trigger_consumer.h>
+#include <linux/iio/triggered_buffer.h>
+
+struct mc3479_prv
+{
+    struct device *dev;
+    struct iio_dev *indio_dev;
+    struct spi_device *spi;
+};
+
+
 static int mc3479_probe(struct spi_device *spi){
-	return 0;
+	int ret;
+
+    struct device *dev = &spi->dev;
+    struct iio_dev *indio_dev;
+    struct mc3479_prv *prv;
+
+    indio_dev = devm_iio_device_alloc(dev, sizeof(*prv));
+    if(!indio_dev)
+		return -ENOMEM;
+
+    prv = iio_priv(indio_dev);
+
+    prv->dev = dev;
+    prv->indio_dev = indio_dev;
+    prv->spi = spi;
+    
+    spi->mode = SPI_MODE_3;
+    ret = spi_setup(spi);
+	if (ret)
+		return dev_err_probe(dev, ret,
+							"spi setup failed for mc3479!");
+
+    return 0;
 }
 
 static const struct of_device_id mc3479_spi_of_id[] = {
