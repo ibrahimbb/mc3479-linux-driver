@@ -16,6 +16,42 @@ struct mc3479_prv
     struct spi_device *spi;
 };
 
+/**
+ * mc3479_read_reg - reads 8 bit value from register.
+ * 
+ * @param prv: private structure.
+ * @param addr: unsigned 8 bit address of register and a dummy byte.
+ * @param rx_buf: unsigned 8 bit receive buffer.
+ * 
+ * Returns: zero on success, else a negative error code.
+ */
+static int mc3479_read_reg(struct mc3479_prv *prv, u16 addr, u8 *rx_buf){
+    int ret;
+    
+    //read mask is 1
+    addr = addr | 0x80;
+
+    //address is written in 2 bytes, response read in a byte
+    struct spi_transfer xfers[] = {
+        {
+            .tx_buf = &addr,
+            .len = 2
+        },
+        {
+            .rx_buf = rx_buf,
+            .len = 1
+        }
+    };
+
+    struct spi_message message;
+	spi_message_init_with_transfers(&message, xfers, ARRAY_SIZE(xfers));
+
+	ret = spi_sync(prv->spi, &message);
+    if (ret)
+        return ret;
+
+    return 0;
+}
 
 static int mc3479_probe(struct spi_device *spi){
 	int ret;
@@ -28,17 +64,22 @@ static int mc3479_probe(struct spi_device *spi){
     if(!indio_dev)
 		return -ENOMEM;
 
+    //Fill private structure
     prv = iio_priv(indio_dev);
-
     prv->dev = dev;
     prv->indio_dev = indio_dev;
     prv->spi = spi;
     
+    //Setup SPI mode
     spi->mode = SPI_MODE_3;
     ret = spi_setup(spi);
 	if (ret)
 		return dev_err_probe(dev, ret,
 							"spi setup failed for mc3479!");
+
+    //Fill iio_dev
+    indio_dev->name = "mc3479";
+    indio_dev->modes = INDIO_DIRECT_MODE;
 
     return 0;
 }
