@@ -53,6 +53,36 @@ static int mc3479_read_reg(struct mc3479_prv *prv, u16 addr, u8 *rx_buf){
     return 0;
 }
 
+/**
+ * mc3479_write_reg - writes 8 bit value to the register.
+ * 
+ * @param prv: private structure.
+ * @param addr: unsigned 8 bit address of register.
+ * @param rx_buf: unsigned 8 bit value to write.
+ * 
+ * Returns: zero on success, else a negative error code.
+ */
+static int mc3479_write_reg(struct mc3479_prv *prv, u8 addr, u8 cmd){
+    int ret = 0;
+
+    u16 tx_buf = (cmd << 8) | addr;
+
+    //address is written in 2 bytes, response read in a byte
+    struct spi_transfer xfer = {
+        .tx_buf = &tx_buf,
+        .len = 2
+    };
+
+    struct spi_message message;
+	spi_message_init_with_transfers(&message, &xfer, 1);
+
+	ret = spi_sync(prv->spi, &message);
+    if (ret)
+        return ret;
+
+    return ret;
+}
+
 static int mc3479_probe(struct spi_device *spi){
 	int ret;
 
