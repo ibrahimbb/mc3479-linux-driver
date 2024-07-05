@@ -83,6 +83,48 @@ static int mc3479_write_reg(struct mc3479_prv *prv, u8 addr, u8 cmd){
     return ret;
 }
 
+/**
+ * mc3479_burst_read - reads registers sequentially
+ * A burst (multi-byte) register write cycle uses the address 
+ * specified at the beginning of the transaction as the starting 
+ * register address. Internally the address will auto-increment 
+ * to the next consecutive address for each additional byte (8-clocks) 
+ * of data written beyond clock 8.
+ * 
+ * @param prv
+ * @param addr: 8 bit addr of the starting register and a dummy byte
+ * @param rx_buf: pointer to s16 type array
+ * @param len: length of the read in bytes
+ */
+static int mc3479_burst_read(struct mc3479_prv *prv, u16 addr, s16 *rx_buf, u8 len){
+    int ret;
+    
+    //read mask is 1
+    addr = addr | 0x80;
+
+    //address is written in 2 bytes, response read in a byte
+    struct spi_transfer xfers[] = {
+        {
+            .tx_buf = &addr,
+            .len = 2
+        },
+        {
+            .rx_buf = rx_buf,
+            .len = len
+        }
+    };
+
+    //Using spi_message to make transfers atomic
+    struct spi_message message;
+	spi_message_init_with_transfers(&message, xfers, ARRAY_SIZE(xfers));
+
+	ret = spi_sync(prv->spi, &message);
+    if (ret)
+        return ret;
+
+    return 0;
+}
+
 static int mc3479_probe(struct spi_device *spi){
 	int ret;
 

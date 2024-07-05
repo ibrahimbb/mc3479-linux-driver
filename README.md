@@ -10,6 +10,6 @@ First goal is to create a driver that works through SPI interface of the sensor.
 | Goal      | Status |
 | ----------- | ----------- |
 | SPI Read and Write Registers                                                |      ![](https://geps.dev/progress/100)       |
-| Read from XYZ output registers and do conversion                            |      ![](https://geps.dev/progress/40)        |
+| Read from XYZ output registers and do conversion                            |      ![](https://geps.dev/progress/100)       |
 | Write iio_info functions to make single shot read/writes from user space    |      ![](https://geps.dev/progress/0)         |
 | Create triggered buffers and do triggered continuous sampling               |      ![](https://geps.dev/progress/0)         |
