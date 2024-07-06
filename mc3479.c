@@ -9,6 +9,8 @@
 #include <linux/iio/trigger_consumer.h>
 #include <linux/iio/triggered_buffer.h>
 
+#include "mc3479.h"
+
 struct mc3479_prv
 {
     struct device *dev;
@@ -65,9 +67,11 @@ static int mc3479_read_reg(struct mc3479_prv *prv, u16 addr, u8 *rx_buf){
 static int mc3479_write_reg(struct mc3479_prv *prv, u8 addr, u8 cmd){
     int ret = 0;
 
-    u16 tx_buf = (cmd << 8) | addr;
+    u8 tx_buf[2];
 
-    //address is written in 2 bytes, response read in a byte
+    tx_buf[0] = addr;
+    tx_buf[1] = cmd;
+
     struct spi_transfer xfer = {
         .tx_buf = &tx_buf,
         .len = 2
@@ -84,12 +88,13 @@ static int mc3479_write_reg(struct mc3479_prv *prv, u8 addr, u8 cmd){
 }
 
 /**
- * mc3479_burst_read - reads registers sequentially
- * A burst (multi-byte) register write cycle uses the address 
+ * mc3479_burst_read - reads registers sequentially.
+ * 
+ * "A burst (multi-byte) register write cycle uses the address 
  * specified at the beginning of the transaction as the starting 
  * register address. Internally the address will auto-increment 
  * to the next consecutive address for each additional byte (8-clocks) 
- * of data written beyond clock 8.
+ * of data written beyond clock 8." per datasheet.
  * 
  * @param prv
  * @param addr: 8 bit addr of the starting register and a dummy byte
