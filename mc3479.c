@@ -39,14 +39,15 @@ struct mc3479_prv
 /**
  * mc3479_read_reg - reads 8 bit value from register.
  * 
- * @param prv: private structure.
+ * @param indio_dev
  * @param addr: unsigned 8 bit address of register and a dummy byte.
  * @param rx_buf: unsigned 8 bit receive buffer.
  * 
  * Returns: zero on success, else a negative error code.
  */
-static int mc3479_read_reg(struct mc3479_prv *prv, u16 addr, u8 *rx_buf){
+static int mc3479_read_reg(struct iio_dev *indio_dev, u16 addr, u8 *rx_buf){
     int ret;
+    struct mc3479_prv *prv = iio_priv(indio_dev);
     
     //read mask is 1
     addr = addr | 0x80;
@@ -76,14 +77,15 @@ static int mc3479_read_reg(struct mc3479_prv *prv, u16 addr, u8 *rx_buf){
 /**
  * mc3479_write_reg - writes 8 bit value to the register.
  * 
- * @param prv: private structure.
+ * @param indio_dev
  * @param addr: unsigned 8 bit address of register.
  * @param rx_buf: unsigned 8 bit value to write.
  * 
  * Returns: zero on success, else a negative error code.
  */
-static int mc3479_write_reg(struct mc3479_prv *prv, u8 addr, u8 cmd){
+static int mc3479_write_reg(struct iio_dev *indio_dev, u8 addr, u8 cmd){
     int ret = 0;
+    struct mc3479_prv *prv = iio_priv(indio_dev);
 
     u8 tx_buf[2];
 
@@ -114,14 +116,16 @@ static int mc3479_write_reg(struct mc3479_prv *prv, u8 addr, u8 cmd){
  * to the next consecutive address for each additional byte (8-clocks) 
  * of data written beyond clock 8." per datasheet.
  * 
- * @param prv
+ * @param indio_dev
  * @param addr: 8 bit addr of the starting register and a dummy byte
  * @param rx_buf: pointer to s16 type array
  * @param len: length of the read in bytes
  */
-static int mc3479_burst_read(struct mc3479_prv *prv, u16 addr, s16 *rx_buf, u8 len){
+static int mc3479_burst_read(struct iio_dev *indio_dev, u16 addr, 
+                                                     s16 *rx_buf, u8 len){
     int ret;
-    
+    struct mc3479_prv *prv = iio_priv(indio_dev);
+
     //read mask is 1
     addr = addr | 0x80;
 
@@ -156,17 +160,18 @@ static int mc3479_burst_read(struct mc3479_prv *prv, u16 addr, s16 *rx_buf, u8 l
  * WAKE. Clocks are running and X, Y, and Z-axis data are acquired at the 
  * sample rate. per datasheet.
  * 
- * @param prv
+ * @param indio_dev: iio_dev
  * @param state: one of two states. 0 for standby, 1 for wake.
  */
-static int mc3479_change_operation_state(struct mc3479_prv *prv, 
+static int mc3479_change_operation_state(struct iio_dev *indio_dev, 
                                             unsigned int state){
     int ret;
+    struct mc3479_prv *prv = iio_priv(indio_dev);
 
     switch (state)
     {
     case MC3479_STANDBY:
-        ret = mc3479_write_reg(prv, MC3479_REG_MODE, MC3479_STANDBY);
+        ret = mc3479_write_reg(indio_dev, MC3479_REG_MODE, MC3479_STANDBY);
         if (ret)
             return ret;
 
@@ -174,7 +179,7 @@ static int mc3479_change_operation_state(struct mc3479_prv *prv,
         break;
     
     case MC3479_WAKE:
-        ret = mc3479_write_reg(prv, MC3479_REG_MODE, MC3479_WAKE);
+        ret = mc3479_write_reg(indio_dev, MC3479_REG_MODE, MC3479_WAKE);
         if (ret)
             return ret;
 
@@ -189,48 +194,49 @@ static int mc3479_change_operation_state(struct mc3479_prv *prv,
     return 0;
 }
 
-static int mc3479_set_sampling_rate(struct mc3479_prv *prv, unsigned int odr){
+static int mc3479_set_sampling_rate(struct iio_dev *indio_dev, unsigned int odr){
     int ret;
+    struct mc3479_prv *prv = iio_priv(indio_dev);
 
     switch (odr)
     {
     case MC3479_RATE50:
-        ret = mc3479_write_reg(prv, MC3479_REG_SR, odr);
+        ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
         return ret;
         break;
 
     case MC3479_RATE100:
-        ret = mc3479_write_reg(prv, MC3479_REG_SR, odr);
+        ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
         return ret;
         break;
 
     case MC3479_RATE125:
-        ret = mc3479_write_reg(prv, MC3479_REG_SR, odr);
+        ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
         return ret;
         break;
 
     case MC3479_RATE200:
-        ret = mc3479_write_reg(prv, MC3479_REG_SR, odr);
+        ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
         return ret;
         break;
 
     case MC3479_RATE250:
-        ret = mc3479_write_reg(prv, MC3479_REG_SR, odr);
+        ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
         return ret;
         break;
 
     case MC3479_RATE500:
-        ret = mc3479_write_reg(prv, MC3479_REG_SR, odr);
+        ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
         return ret;
         break;
 
     case MC3479_RATE1000:
-        ret = mc3479_write_reg(prv, MC3479_REG_SR, odr);
+        ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
         return ret;
         break;
 
     case MC3479_RATE2000:
-        ret = mc3479_write_reg(prv, MC3479_REG_SR, odr);
+        ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
         return ret;
         break;
 
