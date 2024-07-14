@@ -16,6 +16,17 @@ enum mc3479_device_state {
     MC3479_WAKE = 0x01,
 };
 
+enum mc3479_sampling_rate {
+    MC3479_RATE50   = 0x08,
+    MC3479_RATE100  = 0x09,
+    MC3479_RATE125  = 0x0A,
+    MC3479_RATE200  = 0x0B,
+    MC3479_RATE250  = 0x0C,
+    MC3479_RATE500  = 0x0D,
+    MC3479_RATE1000 = 0x0E,
+    MC3479_RATE2000 = 0x0F
+};
+
 struct mc3479_prv
 {
     struct device *dev;
@@ -176,6 +187,57 @@ static int mc3479_change_operation_state(struct mc3479_prv *prv,
     }
 
     return 0;
+}
+
+static int mc3479_set_sampling_rate(struct mc3479_prv *prv, unsigned int odr){
+    int ret;
+
+    switch (odr)
+    {
+    case MC3479_RATE50:
+        ret = mc3479_write_reg(prv, MC3479_REG_SR, odr);
+        return ret;
+        break;
+
+    case MC3479_RATE100:
+        ret = mc3479_write_reg(prv, MC3479_REG_SR, odr);
+        return ret;
+        break;
+
+    case MC3479_RATE125:
+        ret = mc3479_write_reg(prv, MC3479_REG_SR, odr);
+        return ret;
+        break;
+
+    case MC3479_RATE200:
+        ret = mc3479_write_reg(prv, MC3479_REG_SR, odr);
+        return ret;
+        break;
+
+    case MC3479_RATE250:
+        ret = mc3479_write_reg(prv, MC3479_REG_SR, odr);
+        return ret;
+        break;
+
+    case MC3479_RATE500:
+        ret = mc3479_write_reg(prv, MC3479_REG_SR, odr);
+        return ret;
+        break;
+
+    case MC3479_RATE1000:
+        ret = mc3479_write_reg(prv, MC3479_REG_SR, odr);
+        return ret;
+        break;
+
+    case MC3479_RATE2000:
+        ret = mc3479_write_reg(prv, MC3479_REG_SR, odr);
+        return ret;
+        break;
+
+    default:
+        return -EINVAL;
+        break;
+    }
 }
 
 static int mc3479_probe(struct spi_device *spi){
