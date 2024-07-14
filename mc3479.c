@@ -12,9 +12,8 @@
 #include "mc3479.h"
 
 enum mc3479_device_state {
-    MC3479_SLEEP = 0x00,
+    MC3479_STANDBY = 0x00,
     MC3479_WAKE = 0x01,
-    MC3479_STANDBY = 0x03
 };
 
 struct mc3479_prv
@@ -138,6 +137,17 @@ static int mc3479_burst_read(struct mc3479_prv *prv, u16 addr, s16 *rx_buf, u8 l
     return 0;
 }
 
+/**
+ * mc3479_change_operation_state - change operation mode
+ * 
+ * MC3479 has 2 modes:
+ * STANDBY. Clocks are not running and X, Y, and Z-axis data are not sampled.
+ * WAKE. Clocks are running and X, Y, and Z-axis data are acquired at the 
+ * sample rate. per datasheet.
+ * 
+ * @param prv
+ * @param state: one of two states. 0 for standby, 1 for wake.
+ */
 static int mc3479_change_operation_state(struct mc3479_prv *prv, 
                                             unsigned int state){
     int ret;
@@ -158,14 +168,6 @@ static int mc3479_change_operation_state(struct mc3479_prv *prv,
             return ret;
 
         prv->state = MC3479_WAKE;
-        break;
-
-    case MC3479_SLEEP:
-        ret = mc3479_write_reg(prv, MC3479_REG_MODE, MC3479_SLEEP);
-        if (ret)
-            return ret;
-
-        prv->state = MC3479_SLEEP;
         break;
     
     default:
