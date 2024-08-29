@@ -12,28 +12,27 @@
 #include "mc3479.h"
 
 enum mc3479_device_state {
-    MC3479_STANDBY = 0x00,
-    MC3479_WAKE = 0x01,
+	MC3479_STANDBY = 0x00,
+	MC3479_WAKE = 0x01,
 };
 
 enum mc3479_sampling_rate {
-    MC3479_RATE50   = 0x08,
-    MC3479_RATE100  = 0x09,
-    MC3479_RATE125  = 0x0A,
-    MC3479_RATE200  = 0x0B,
-    MC3479_RATE250  = 0x0C,
-    MC3479_RATE500  = 0x0D,
-    MC3479_RATE1000 = 0x0E,
-    MC3479_RATE2000 = 0x0F
+	MC3479_RATE50 = 0x08,
+	MC3479_RATE100 = 0x09,
+	MC3479_RATE125 = 0x0A,
+	MC3479_RATE200 = 0x0B,
+	MC3479_RATE250 = 0x0C,
+	MC3479_RATE500 = 0x0D,
+	MC3479_RATE1000 = 0x0E,
+	MC3479_RATE2000 = 0x0F
 };
 
-struct mc3479_prv
-{
-    struct device *dev;
-    struct iio_dev *indio_dev;
-    struct spi_device *spi;
+struct mc3479_prv {
+	struct device *dev;
+	struct iio_dev *indio_dev;
+	struct spi_device *spi;
 
-    enum mc3479_device_state state;
+	enum mc3479_device_state state;
 };
 
 /**
@@ -45,33 +44,26 @@ struct mc3479_prv
  * 
  * Returns: zero on success, else a negative error code.
  */
-static int mc3479_read_reg(struct iio_dev *indio_dev, u16 addr, u8 *rx_buf){
-    int ret;
-    struct mc3479_prv *prv = iio_priv(indio_dev);
-    
-    //read mask is 1
-    addr = addr | 0x80;
+static int mc3479_read_reg(struct iio_dev *indio_dev, u16 addr, u8 *rx_buf)
+{
+	int ret;
+	struct mc3479_prv *prv = iio_priv(indio_dev);
 
-    //address is written in 2 bytes, response read in a byte
-    struct spi_transfer xfers[] = {
-        {
-            .tx_buf = &addr,
-            .len = 2
-        },
-        {
-            .rx_buf = rx_buf,
-            .len = 1
-        }
-    };
+	//read mask is 1
+	addr = addr | 0x80;
 
-    struct spi_message message;
+	//address is written in 2 bytes, response read in a byte
+	struct spi_transfer xfers[] = { { .tx_buf = &addr, .len = 2 },
+					{ .rx_buf = rx_buf, .len = 1 } };
+
+	struct spi_message message;
 	spi_message_init_with_transfers(&message, xfers, ARRAY_SIZE(xfers));
 
 	ret = spi_sync(prv->spi, &message);
-    if (ret)
-        return ret;
+	if (ret)
+		return ret;
 
-    return 0;
+	return 0;
 }
 
 /**
@@ -83,28 +75,26 @@ static int mc3479_read_reg(struct iio_dev *indio_dev, u16 addr, u8 *rx_buf){
  * 
  * Returns: zero on success, else a negative error code.
  */
-static int mc3479_write_reg(struct iio_dev *indio_dev, u8 addr, u8 cmd){
-    int ret = 0;
-    struct mc3479_prv *prv = iio_priv(indio_dev);
+static int mc3479_write_reg(struct iio_dev *indio_dev, u8 addr, u8 cmd)
+{
+	int ret = 0;
+	struct mc3479_prv *prv = iio_priv(indio_dev);
 
-    u8 tx_buf[2];
+	u8 tx_buf[2];
 
-    tx_buf[0] = addr;
-    tx_buf[1] = cmd;
+	tx_buf[0] = addr;
+	tx_buf[1] = cmd;
 
-    struct spi_transfer xfer = {
-        .tx_buf = &tx_buf,
-        .len = 2
-    };
+	struct spi_transfer xfer = { .tx_buf = &tx_buf, .len = 2 };
 
-    struct spi_message message;
+	struct spi_message message;
 	spi_message_init_with_transfers(&message, &xfer, 1);
 
 	ret = spi_sync(prv->spi, &message);
-    if (ret)
-        return ret;
+	if (ret)
+		return ret;
 
-    return ret;
+	return ret;
 }
 
 /**
@@ -121,35 +111,28 @@ static int mc3479_write_reg(struct iio_dev *indio_dev, u8 addr, u8 cmd){
  * @param rx_buf: pointer to s16 type array
  * @param len: length of the read in bytes
  */
-static int mc3479_burst_read(struct iio_dev *indio_dev, u16 addr, 
-                                                     s16 *rx_buf, u8 len){
-    int ret;
-    struct mc3479_prv *prv = iio_priv(indio_dev);
+static int mc3479_burst_read(struct iio_dev *indio_dev, u16 addr, s16 *rx_buf,
+			     u8 len)
+{
+	int ret;
+	struct mc3479_prv *prv = iio_priv(indio_dev);
 
-    //read mask is 1
-    addr = addr | 0x80;
+	//read mask is 1
+	addr = addr | 0x80;
 
-    //address is written in 2 bytes, response read in a byte
-    struct spi_transfer xfers[] = {
-        {
-            .tx_buf = &addr,
-            .len = 2
-        },
-        {
-            .rx_buf = rx_buf,
-            .len = len
-        }
-    };
+	//address is written in 2 bytes, response read in a byte
+	struct spi_transfer xfers[] = { { .tx_buf = &addr, .len = 2 },
+					{ .rx_buf = rx_buf, .len = len } };
 
-    //Using spi_message to make transfers atomic
-    struct spi_message message;
+	//Using spi_message to make transfers atomic
+	struct spi_message message;
 	spi_message_init_with_transfers(&message, xfers, ARRAY_SIZE(xfers));
 
 	ret = spi_sync(prv->spi, &message);
-    if (ret)
-        return ret;
+	if (ret)
+		return ret;
 
-    return 0;
+	return 0;
 }
 
 /**
@@ -163,130 +146,131 @@ static int mc3479_burst_read(struct iio_dev *indio_dev, u16 addr,
  * @param indio_dev: iio_dev
  * @param state: one of two states. 0 for standby, 1 for wake.
  */
-static int mc3479_change_operation_state(struct iio_dev *indio_dev, 
-                                            unsigned int state){
-    int ret;
-    struct mc3479_prv *prv = iio_priv(indio_dev);
+static int mc3479_change_operation_state(struct iio_dev *indio_dev,
+					 unsigned int state)
+{
+	int ret;
+	struct mc3479_prv *prv = iio_priv(indio_dev);
 
-    switch (state)
-    {
-    case MC3479_STANDBY:
-        ret = mc3479_write_reg(indio_dev, MC3479_REG_MODE, MC3479_STANDBY);
-        if (ret)
-            return ret;
+	switch (state) {
+	case MC3479_STANDBY:
+		ret = mc3479_write_reg(indio_dev, MC3479_REG_MODE,
+				       MC3479_STANDBY);
+		if (ret)
+			return ret;
 
-        prv->state = MC3479_STANDBY;
-        break;
-    
-    case MC3479_WAKE:
-        ret = mc3479_write_reg(indio_dev, MC3479_REG_MODE, MC3479_WAKE);
-        if (ret)
-            return ret;
+		prv->state = MC3479_STANDBY;
+		break;
 
-        prv->state = MC3479_WAKE;
-        break;
-    
-    default:
-        return -EINVAL;
-        break;
-    }
+	case MC3479_WAKE:
+		ret = mc3479_write_reg(indio_dev, MC3479_REG_MODE, MC3479_WAKE);
+		if (ret)
+			return ret;
 
-    return 0;
+		prv->state = MC3479_WAKE;
+		break;
+
+	default:
+		return -EINVAL;
+		break;
+	}
+
+	return 0;
 }
 
-static int mc3479_set_sampling_rate(struct iio_dev *indio_dev, unsigned int odr){
-    int ret;
-    struct mc3479_prv *prv = iio_priv(indio_dev);
+static int mc3479_set_sampling_rate(struct iio_dev *indio_dev, unsigned int odr)
+{
+	int ret;
+	struct mc3479_prv *prv = iio_priv(indio_dev);
 
-    switch (odr)
-    {
-    case MC3479_RATE50:
-        ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
-        return ret;
-        break;
+	switch (odr) {
+	case MC3479_RATE50:
+		ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
+		return ret;
+		break;
 
-    case MC3479_RATE100:
-        ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
-        return ret;
-        break;
+	case MC3479_RATE100:
+		ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
+		return ret;
+		break;
 
-    case MC3479_RATE125:
-        ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
-        return ret;
-        break;
+	case MC3479_RATE125:
+		ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
+		return ret;
+		break;
 
-    case MC3479_RATE200:
-        ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
-        return ret;
-        break;
+	case MC3479_RATE200:
+		ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
+		return ret;
+		break;
 
-    case MC3479_RATE250:
-        ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
-        return ret;
-        break;
+	case MC3479_RATE250:
+		ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
+		return ret;
+		break;
 
-    case MC3479_RATE500:
-        ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
-        return ret;
-        break;
+	case MC3479_RATE500:
+		ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
+		return ret;
+		break;
 
-    case MC3479_RATE1000:
-        ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
-        return ret;
-        break;
+	case MC3479_RATE1000:
+		ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
+		return ret;
+		break;
 
-    case MC3479_RATE2000:
-        ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
-        return ret;
-        break;
+	case MC3479_RATE2000:
+		ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
+		return ret;
+		break;
 
-    default:
-        return -EINVAL;
-        break;
-    }
+	default:
+		return -EINVAL;
+		break;
+	}
 }
 
-static int mc3479_probe(struct spi_device *spi){
+struct iio_info mc3479_info;
+
+static int mc3479_probe(struct spi_device *spi)
+{
 	int ret;
 
-    struct device *dev = &spi->dev;
-    struct iio_dev *indio_dev;
-    struct mc3479_prv *prv;
+	struct device *dev = &spi->dev;
+	struct iio_dev *indio_dev;
+	struct mc3479_prv *prv;
 
-    indio_dev = devm_iio_device_alloc(dev, sizeof(*prv));
-    if(!indio_dev)
+	indio_dev = devm_iio_device_alloc(dev, sizeof(*prv));
+	if (!indio_dev)
 		return -ENOMEM;
 
-    //Fill private structure
-    prv = iio_priv(indio_dev);
-    prv->dev = dev;
-    prv->indio_dev = indio_dev;
-    prv->spi = spi;
-    
-    //Setup SPI mode
-    spi->mode = SPI_MODE_3;
-    ret = spi_setup(spi);
+	//Fill private structure
+	prv = iio_priv(indio_dev);
+	prv->dev = dev;
+	prv->indio_dev = indio_dev;
+	prv->spi = spi;
+
+	//Setup SPI mode
+	spi->mode = SPI_MODE_3;
+	ret = spi_setup(spi);
 	if (ret)
-		return dev_err_probe(dev, ret,
-							"spi setup failed for mc3479!");
+		return dev_err_probe(dev, ret, "spi setup failed for mc3479!");
 
-    //Fill iio_dev
-    indio_dev->name = "mc3479";
-    indio_dev->modes = INDIO_DIRECT_MODE;
+	//Fill iio_dev
+	indio_dev->name = "mc3479";
+	indio_dev->modes = INDIO_DIRECT_MODE;
+	indio_dev->info = &mc3479_info;
 
-    return 0;
+	return devm_iio_device_register(dev, indio_dev);
 }
 
 static const struct of_device_id mc3479_spi_of_id[] = {
 	{ .compatible = "memsic,mc3479" },
-	{ }
+	{}
 };
 MODULE_DEVICE_TABLE(of, mc3479_spi_of_id);
 
-static const struct spi_device_id mc3479_id[] = {
-	{ "mc3479" },
-	{ }
-};
+static const struct spi_device_id mc3479_id[] = { { "mc3479" }, {} };
 MODULE_DEVICE_TABLE(spi, mc3479_id);
 
 static struct spi_driver mc3479_driver = {
