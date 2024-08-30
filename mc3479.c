@@ -14,6 +14,7 @@
 enum mc3479_device_state {
 	MC3479_STANDBY = 0x00,
 	MC3479_WAKE = 0x01,
+	MC3479_INIT_STATE
 };
 
 enum mc3479_odr {
@@ -24,7 +25,8 @@ enum mc3479_odr {
 	MC3479_RATE250 = 0x0C,
 	MC3479_RATE500 = 0x0D,
 	MC3479_RATE1000 = 0x0E,
-	MC3479_RATE2000 = 0x0F
+	MC3479_RATE2000 = 0x0F,
+	MC3479_INIT_ODR
 };
 
 struct mc3479_prv {
@@ -257,12 +259,6 @@ static int mc3479_probe(struct spi_device *spi)
 	if (!indio_dev)
 		return -ENOMEM;
 
-	//Fill private structure
-	prv = iio_priv(indio_dev);
-	prv->dev = dev;
-	prv->indio_dev = indio_dev;
-	prv->spi = spi;
-
 	//Setup SPI mode
 	spi->mode = SPI_MODE_3;
 	ret = spi_setup(spi);
@@ -273,6 +269,14 @@ static int mc3479_probe(struct spi_device *spi)
 	indio_dev->name = "mc3479";
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &mc3479_info;
+
+	//Fill private structure
+	prv = iio_priv(indio_dev);
+	prv->dev = dev;
+	prv->indio_dev = indio_dev;
+	prv->spi = spi;
+	prv->state = MC3479_INIT_STATE;
+	prv->odr = MC3479_INIT_ODR;
 
 	mutex_init(&prv->mtx);
 
