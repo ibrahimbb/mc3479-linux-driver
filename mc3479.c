@@ -187,54 +187,60 @@ unlock_and_ret:
 
 static int mc3479_set_sampling_rate(struct iio_dev *indio_dev, unsigned int odr)
 {
-	int ret;
+	int ret = 0;
 	struct mc3479_prv *prv = iio_priv(indio_dev);
+
+	mutex_lock(&prv->mtx);
+
+	if (odr == prv->odr)
+		goto unlock_and_ret;
 
 	switch (odr) {
 	case MC3479_RATE50:
 		ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
-		return ret;
 		break;
 
 	case MC3479_RATE100:
 		ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
-		return ret;
 		break;
 
 	case MC3479_RATE125:
 		ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
-		return ret;
 		break;
 
 	case MC3479_RATE200:
 		ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
-		return ret;
 		break;
 
 	case MC3479_RATE250:
 		ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
-		return ret;
 		break;
 
 	case MC3479_RATE500:
 		ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
-		return ret;
 		break;
 
 	case MC3479_RATE1000:
 		ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
-		return ret;
 		break;
 
 	case MC3479_RATE2000:
 		ret = mc3479_write_reg(indio_dev, MC3479_REG_SR, odr);
-		return ret;
 		break;
 
 	default:
-		return -EINVAL;
+		ret = -EINVAL;
 		break;
 	}
+
+	if (ret)
+		goto unlock_and_ret;
+
+	prv->odr = odr;
+
+unlock_and_ret:
+	mutex_unlock(&prv->mtx);
+	return ret;
 }
 
 struct iio_info mc3479_info;
