@@ -141,7 +141,7 @@ static int mc3479_burst_read(struct iio_dev *indio_dev, u16 addr, s16 *rx_buf,
 }
 
 /**
- * mc3479_change_operation_state - change operation mode
+ * mc3479_set_operation_state - change operation mode
  * 
  * MC3479 has 2 modes:
  * STANDBY. Clocks are not running and X, Y, and Z-axis data are not sampled.
@@ -151,8 +151,8 @@ static int mc3479_burst_read(struct iio_dev *indio_dev, u16 addr, s16 *rx_buf,
  * @param indio_dev: iio_dev
  * @param state: one of two states. 0 for standby, 1 for wake.
  */
-static int mc3479_change_operation_state(struct iio_dev *indio_dev,
-					 unsigned int state)
+static int mc3479_set_operation_state(struct iio_dev *indio_dev,
+				      unsigned int state)
 {
 	int ret = 0;
 	struct mc3479_prv *prv = iio_priv(indio_dev);
