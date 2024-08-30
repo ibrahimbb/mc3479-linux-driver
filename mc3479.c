@@ -16,7 +16,7 @@ enum mc3479_device_state {
 	MC3479_WAKE = 0x01,
 };
 
-enum mc3479_sampling_rate {
+enum mc3479_odr {
 	MC3479_RATE50 = 0x08,
 	MC3479_RATE100 = 0x09,
 	MC3479_RATE125 = 0x0A,
@@ -29,10 +29,13 @@ enum mc3479_sampling_rate {
 
 struct mc3479_prv {
 	struct device *dev;
-	struct iio_dev *indio_dev;
 	struct spi_device *spi;
+	struct iio_dev *indio_dev;
+	struct iio_trigger *trig;
 
+	struct mutex mtx; //Lock to protect below enumerators for state
 	enum mc3479_device_state state;
+	enum mc3479_odr odr;
 };
 
 /**
@@ -149,33 +152,37 @@ static int mc3479_burst_read(struct iio_dev *indio_dev, u16 addr, s16 *rx_buf,
 static int mc3479_change_operation_state(struct iio_dev *indio_dev,
 					 unsigned int state)
 {
-	int ret;
+	int ret = 0;
 	struct mc3479_prv *prv = iio_priv(indio_dev);
+
+	mutex_lock(&prv->mtx);
+
+	if (state == prv->state)
+		goto unlock_and_ret;
 
 	switch (state) {
 	case MC3479_STANDBY:
 		ret = mc3479_write_reg(indio_dev, MC3479_REG_MODE,
 				       MC3479_STANDBY);
-		if (ret)
-			return ret;
-
-		prv->state = MC3479_STANDBY;
 		break;
 
 	case MC3479_WAKE:
 		ret = mc3479_write_reg(indio_dev, MC3479_REG_MODE, MC3479_WAKE);
-		if (ret)
-			return ret;
-
-		prv->state = MC3479_WAKE;
 		break;
 
 	default:
-		return -EINVAL;
+		ret = -EINVAL;
 		break;
 	}
 
-	return 0;
+	if (ret)
+		goto unlock_and_ret;
+
+	prv->state = state;
+
+unlock_and_ret:
+	mutex_unlock(&prv->mtx);
+	return ret;
 }
 
 static int mc3479_set_sampling_rate(struct iio_dev *indio_dev, unsigned int odr)
@@ -260,6 +267,8 @@ static int mc3479_probe(struct spi_device *spi)
 	indio_dev->name = "mc3479";
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &mc3479_info;
+
+	mutex_init(&prv->mtx);
 
 	return devm_iio_device_register(dev, indio_dev);
 }
