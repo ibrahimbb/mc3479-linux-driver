@@ -40,6 +40,58 @@ struct mc3479_prv {
 	enum mc3479_odr odr;
 };
 
+#define MC3479_ACCEL_CHANNEL(index, reg, axis)                            \
+	{                                                                 \
+		.type = IIO_ACCEL, .address = reg, .modified = 1,         \
+		.channel2 = IIO_MOD_##axis,                               \
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),             \
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
+		.scan_index = index, .scan_type = {                       \
+			.sign = 's',                                      \
+			.realbits = 16,                                   \
+			.storagebits = 32,                                \
+			.shift = 0,                                       \
+			.endianness = IIO_LE,                             \
+		}                                                         \
+	}
+
+static const struct iio_chan_spec mc3479_channels[] = {
+	MC3479_ACCEL_CHANNEL(0, MC3479_REG_XOUT_LSB, X),
+	MC3479_ACCEL_CHANNEL(1, MC3479_REG_YOUT_LSB, Y),
+	MC3479_ACCEL_CHANNEL(2, MC3479_REG_ZOUT_LSB, Z),
+	IIO_CHAN_SOFT_TIMESTAMP(3),
+};
+
+static const int mc3479_odr_comm_table[8] = {
+	MC3479_RATE50,	MC3479_RATE100, MC3479_RATE125,	 MC3479_RATE200,
+	MC3479_RATE250, MC3479_RATE500, MC3479_RATE1000, MC3479_RATE2000,
+};
+
+static const int mc3479_odr_table[8] = {
+	50, 100, 125, 200, 250, 500, 1000, 2000
+};
+
+static int mc3479_get_odr(int odr_comm)
+{
+	for (int i = 0; i < ARRAY_SIZE(mc3479_odr_comm_table); i++) {
+		//Return the odr
+		if (mc3479_odr_comm_table[i] == odr_comm)
+			return mc3479_odr_table[i];
+	}
+
+	return -EINVAL;
+}
+
+static int mc3479_get_odr_comm(int odr)
+{
+	for (int i = 0; i < ARRAY_SIZE(mc3479_odr_table); i++) {
+		if (mc3479_odr_comm_table[i] == odr)
+			return mc3479_odr_table[i];
+	}
+
+	return -EINVAL;
+}
+
 /**
  * mc3479_read_reg - reads 8 bit value from register.
  * 
@@ -121,7 +173,7 @@ static int mc3479_write_reg(struct iio_dev *indio_dev, u8 addr, u8 cmd)
  * @param rx_buf: pointer to u8 type array
  * @param len: length of the read in bytes
  */
-static int mc3479_burst_read(struct iio_dev *indio_dev, u8 addr, u8 *rx_buf,
+static int mc3479_burst_read(struct iio_dev *indio_dev, u8 addr, u16 *rx_buf,
 			     u8 len)
 {
 	int ret;
@@ -256,6 +308,64 @@ unlock_and_ret:
 	mutex_unlock(&prv->mtx);
 	return ret;
 }
+static int mc3479_read_raw(struct iio_dev *indio_dev,
+			   struct iio_chan_spec const *chan, int *val,
+			   int *val2, long mask)
+{
+	int ret;
+	struct mc3479_prv *prv = iio_priv(indio_dev);
+
+	mutex_lock(&prv->mtx);
+
+	switch (mask) {
+	case IIO_CHAN_INFO_RAW:
+		ret = iio_device_claim_direct_mode(indio_dev);
+		if (ret)
+			goto unlock_and_ret;
+
+		ret = mc3479_set_operation_state(indio_dev, MC3479_WAKE);
+		if (ret)
+			goto release_unlock_and_ret;
+
+		u16 regval;
+		ret = mc3479_burst_read(indio_dev, chan->address, &regval, 2);
+		if (ret)
+			goto release_unlock_and_ret;
+
+		u32 val_u32 = (0x0000 << 16) | regval;
+		s32 val_s32 = sign_extend32(val_u32, 15);
+
+		*val = val_s32;
+
+		ret = IIO_VAL_INT;
+		goto release_unlock_and_ret;
+		break;
+
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		ret = mc3479_get_odr(prv->odr);
+		if (ret < 0)
+			goto unlock_and_ret;
+
+		*val = ret;
+
+		ret = IIO_VAL_INT;
+		goto unlock_and_ret;
+		break;
+
+	default:
+		ret = -EINVAL;
+		goto unlock_and_ret;
+		break;
+	}
+
+release_unlock_and_ret:
+	iio_device_release_direct_mode(indio_dev);
+unlock_and_ret:
+	mutex_unlock(&prv->mtx);
+	return ret;
+}
+
+struct iio_info mc3479_info = { .read_raw = &mc3479_read_raw };
 
 static int mc3479_setup(struct iio_dev *indio_dev)
 {
@@ -284,7 +394,6 @@ static int mc3479_setup(struct iio_dev *indio_dev)
 	return 0;
 }
 
-
 static int mc3479_probe(struct spi_device *spi)
 {
 	int ret;
@@ -307,6 +416,8 @@ static int mc3479_probe(struct spi_device *spi)
 	indio_dev->name = "mc3479";
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &mc3479_info;
+	indio_dev->channels = mc3479_channels;
+	indio_dev->num_channels = ARRAY_SIZE(mc3479_channels);
 
 	//Fill private structure
 	prv = iio_priv(indio_dev);
