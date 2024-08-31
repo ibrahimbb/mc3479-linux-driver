@@ -49,16 +49,21 @@ struct mc3479_prv {
  * 
  * Returns: zero on success, else a negative error code.
  */
-static int mc3479_read_reg(struct iio_dev *indio_dev, u16 addr, u8 *rx_buf)
+static int mc3479_read_reg(struct iio_dev *indio_dev, u8 addr, u8 *rx_buf)
 {
 	int ret;
 	struct mc3479_prv *prv = iio_priv(indio_dev);
 
-	//read mask is 1
+	//read mask
 	addr = addr | 0x80;
 
+	u8 regval[2];
+
+	regval[0] = addr;
+	regval[1] = 0x00; //Dummy byte
+
 	//address is written in 2 bytes, response read in a byte
-	struct spi_transfer xfers[] = { { .tx_buf = &addr, .len = 2 },
+	struct spi_transfer xfers[] = { { .tx_buf = regval, .len = 2 },
 					{ .rx_buf = rx_buf, .len = 1 } };
 
 	struct spi_message message;
@@ -112,21 +117,26 @@ static int mc3479_write_reg(struct iio_dev *indio_dev, u8 addr, u8 cmd)
  * of data written beyond clock 8." per datasheet.
  * 
  * @param indio_dev
- * @param addr: 8 bit addr of the starting register and a dummy byte
- * @param rx_buf: pointer to s16 type array
+ * @param addr: 8 bit addr of the register to write
+ * @param rx_buf: pointer to u8 type array
  * @param len: length of the read in bytes
  */
-static int mc3479_burst_read(struct iio_dev *indio_dev, u16 addr, s16 *rx_buf,
+static int mc3479_burst_read(struct iio_dev *indio_dev, u8 addr, u8 *rx_buf,
 			     u8 len)
 {
 	int ret;
 	struct mc3479_prv *prv = iio_priv(indio_dev);
 
-	//read mask is 1
+	//read mask
 	addr = addr | 0x80;
 
+	u8 regval[2];
+
+	regval[0] = addr;
+	regval[1] = 0x00; //Dummy byte
+
 	//address is written in 2 bytes, response read in a byte
-	struct spi_transfer xfers[] = { { .tx_buf = &addr, .len = 2 },
+	struct spi_transfer xfers[] = { { .tx_buf = regval, .len = 2 },
 					{ .rx_buf = rx_buf, .len = len } };
 
 	//Using spi_message to make transfers atomic
