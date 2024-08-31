@@ -257,7 +257,33 @@ unlock_and_ret:
 	return ret;
 }
 
-struct iio_info mc3479_info;
+static int mc3479_setup(struct iio_dev *indio_dev)
+{
+	int ret;
+	u8 regval;
+	struct mc3479_prv *prv = iio_priv(indio_dev);
+
+	mutex_lock(&prv->mtx);
+	ret = mc3479_set_operation_state(indio_dev, MC3479_STANDBY);
+	mutex_unlock(&prv->mtx);
+	if (ret)
+		return ret;
+
+	//Read chip identification register
+	ret = mc3479_read_reg(indio_dev, MC3479_REG_PROD, &regval);
+	if (ret)
+		return ret;
+
+	if (regval != MC3479_PROD_ID)
+		dev_warn(prv->dev, "Invalid DEV ID 0x%02x\n", regval);
+
+	ret = mc3479_set_sampling_rate(indio_dev, MC3479_RATE2000);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
 
 static int mc3479_probe(struct spi_device *spi)
 {
@@ -291,6 +317,10 @@ static int mc3479_probe(struct spi_device *spi)
 	prv->odr = MC3479_INIT_ODR;
 
 	mutex_init(&prv->mtx);
+
+	ret = mc3479_setup(indio_dev);
+	if (ret)
+		return dev_err_probe(dev, ret, "MC3479 setup failed!\n");
 
 	return devm_iio_device_register(dev, indio_dev);
 }
