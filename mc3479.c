@@ -154,12 +154,15 @@ static int mc3479_burst_read(struct iio_dev *indio_dev, u8 addr, u8 *rx_buf,
  * mc3479_set_operation_state - change operation mode
  * 
  * MC3479 has 2 modes:
- * STANDBY. Clocks are not running and X, Y, and Z-axis data are not sampled.
- * WAKE. Clocks are running and X, Y, and Z-axis data are acquired at the 
- * sample rate. per datasheet.
+ * 1) STANDBY. Clocks are not running and X, Y, and Z-axis data are not sampled.
+ * All registers are writeable and readable.
  * 
- * @param indio_dev: iio_dev
- * @param state: one of two states. 0 for standby, 1 for wake.
+ * 2) WAKE. Clocks are running and X, Y, and Z-axis data are acquired at the 
+ * sample rate. per datasheet. Only mode register is writable, all registers are
+ * readable.
+ * 
+ * Is not thread-safe. Should be called when prv->mtx is locked.
+
  */
 static int mc3479_set_operation_state(struct iio_dev *indio_dev,
 				      unsigned int state)
@@ -167,10 +170,8 @@ static int mc3479_set_operation_state(struct iio_dev *indio_dev,
 	int ret = 0;
 	struct mc3479_prv *prv = iio_priv(indio_dev);
 
-	mutex_lock(&prv->mtx);
-
 	if (state == prv->state)
-		goto unlock_and_ret;
+		return ret;
 
 	switch (state) {
 	case MC3479_STANDBY:
@@ -188,12 +189,9 @@ static int mc3479_set_operation_state(struct iio_dev *indio_dev,
 	}
 
 	if (ret)
-		goto unlock_and_ret;
+		return ret;
 
 	prv->state = state;
-
-unlock_and_ret:
-	mutex_unlock(&prv->mtx);
 	return ret;
 }
 
@@ -205,6 +203,10 @@ static int mc3479_set_sampling_rate(struct iio_dev *indio_dev, unsigned int odr)
 	mutex_lock(&prv->mtx);
 
 	if (odr == prv->odr)
+		goto unlock_and_ret;
+
+	ret = mc3479_set_operation_state(indio_dev, MC3479_STANDBY);
+	if (ret)
 		goto unlock_and_ret;
 
 	switch (odr) {
