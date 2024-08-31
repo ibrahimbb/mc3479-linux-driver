@@ -1,6 +1,7 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/spi/spi.h>
+#include <linux/irq.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/buffer.h>
@@ -10,6 +11,14 @@
 #include <linux/iio/triggered_buffer.h>
 
 #include "mc3479.h"
+
+// clang-format off
+#define MC3479_PROD_ID 			0xA4
+#define MC3479_REG_GPIO_CTRL 	0x33
+#define  MC3479_INT_PP_DRIVE	(BIT(7) | BIT(3))
+#define  MC3479_INT_POL_LOW 	(0x00 | MC3479_INT_PP_DRIVE)
+#define  MC3479_INT_POL_HIG 	(BIT(6) | BIT(2) | MC3479_INT_PP_DRIVE)
+// clang-format on
 
 enum mc3479_device_state {
 	MC3479_STANDBY = 0x00,
@@ -308,6 +317,7 @@ unlock_and_ret:
 	mutex_unlock(&prv->mtx);
 	return ret;
 }
+
 static int mc3479_read_raw(struct iio_dev *indio_dev,
 			   struct iio_chan_spec const *chan, int *val,
 			   int *val2, long mask)
@@ -366,6 +376,59 @@ unlock_and_ret:
 }
 
 struct iio_info mc3479_info = { .read_raw = &mc3479_read_raw };
+
+static int mc3479_setup_irq(struct iio_dev *indio_dev)
+{
+	int ret;
+	struct mc3479_prv *prv = iio_priv(indio_dev);
+
+	int irq = fwnode_irq_get_byname(dev_fwnode(prv->dev), "INT1");
+	if (irq > 0) {
+		u32 irq_type = irq_get_trigger_type(irq);
+
+		switch (irq_type) {
+		case IRQ_TYPE_EDGE_FALLING:
+		case IRQ_TYPE_LEVEL_LOW:
+			ret = mc3479_write_reg(indio_dev, MC3479_REG_GPIO_CTRL,
+					       MC3479_INT_POL_HIG);
+			break;
+
+		case IRQ_TYPE_EDGE_RISING:
+		case IRQ_TYPE_LEVEL_HIGH:
+			ret = mc3479_write_reg(indio_dev, MC3479_REG_GPIO_CTRL,
+					       MC3479_INT_POL_LOW);
+			break;
+
+		default:
+			ret = -EINVAL;
+			break;
+		}
+
+		if (ret)
+			return ret;
+
+		ret = mc3479_write_reg(indio_dev, MC3479_REG_INTR_CTRL, 0xC0);
+		if (ret)
+			return ret;
+	}
+
+	return irq;
+}
+
+irqreturn_t mc3479_trigger_handler(int irq, void *p)
+{
+	struct iio_poll_func *pf = p;
+	struct iio_dev *indio_dev = pf->indio_dev;
+	struct mc3479_prv *prv = iio_priv(indio_dev);
+	mutex_lock(&prv->mtx);
+
+	//Do trigger handling stuff here.
+
+	mutex_unlock(&prv->mtx);
+	iio_trigger_notify_done(indio_dev->trig);
+
+	return IRQ_HANDLED;
+}
 
 static int mc3479_setup(struct iio_dev *indio_dev)
 {
@@ -432,6 +495,37 @@ static int mc3479_probe(struct spi_device *spi)
 	ret = mc3479_setup(indio_dev);
 	if (ret)
 		return dev_err_probe(dev, ret, "MC3479 setup failed!\n");
+
+	ret = devm_iio_triggered_buffer_setup(dev, indio_dev,
+					      &iio_pollfunc_store_time,
+					      &mc3479_trigger_handler, NULL);
+
+	int irq = mc3479_setup_irq(indio_dev);
+	if (irq > 0) {
+		prv->trig = devm_iio_trigger_alloc(dev, "%s-dev%d",
+						   indio_dev->name,
+						   iio_device_id(indio_dev));
+		if (!prv->trig)
+			return dev_err_probe(
+				dev, -ENOMEM,
+				"MC3479 trigger allocation failed!");
+
+		iio_trigger_set_drvdata(prv->trig, indio_dev);
+
+		ret = devm_request_irq(dev, irq,
+				       &iio_trigger_generic_data_rdy_poll,
+				       IRQF_ONESHOT, "mc3479_irq", prv->trig);
+		if (ret)
+			return dev_err_probe(dev, ret,
+					     "request irq %d failed\n", irq);
+
+		ret = devm_iio_trigger_register(dev, prv->trig);
+		if (ret)
+			return dev_err_probe(
+				dev, ret, "MC36479 trigger register failed\n");
+	}
+
+	mc3479_set_operation_state(indio_dev, MC3479_WAKE);
 
 	return devm_iio_device_register(dev, indio_dev);
 }
